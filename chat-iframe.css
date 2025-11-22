@@ -1,0 +1,59 @@
+/* YouTube Chat iframe内で適用されるCSS */
+/* チャット表示領域を非表示にし、入力欄のみを表示 */
+
+/* チャットメッセージ領域を非表示 */
+#chat {
+  display: none !important;
+}
+
+/* セパレーターを非表示 */
+#separator {
+  display: none !important;
+}
+
+/* ティッカーを非表示 */
+#ticker {
+  display: none !important;
+}
+
+/* トーストコンテナを非表示 */
+#inline-toast-container {
+  display: none !important;
+}
+
+/* 入力欄のみを表示 */
+#panel-pages {
+  display: block !important;
+}
+
+/* コンテンツ領域を調整 */
+#contents {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  padding: 0 !important;
+}
+
+/* 入力欄を下部に固定 */
+#panel-pages {
+  margin-top: auto !important;
+  flex-shrink: 0 !important;
+}
+
+/* チャット入力フォームのスタイル調整 */
+yt-live-chat-message-input-renderer {
+  background: transparent !important;
+  padding: 12px !important;
+}
+
+/* 入力欄の見た目を改善 */
+#input {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 4px !important;
+}
+
+#input:focus {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: #4a9eff !important;
+}
