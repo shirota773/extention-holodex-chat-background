@@ -1,5 +1,5 @@
 // Holodexページに注入されるコンテンツスクリプト
-// 改善版：YouTubeの元のチャット入力欄を使用
+// 安全版：コンテナに干渉せず、UIをbody直下に配置
 
 console.log('[Holodex Chat Extension] スクリプト読み込み開始');
 console.log('[Holodex Chat Extension] URL:', window.location.href);
@@ -88,6 +88,7 @@ class HolodexChatManager {
     const observer = new MutationObserver((mutations) => {
       console.log('[HCM] DOM変更検出:', mutations.length, 'mutations');
       this.detectVideos();
+      this.updateUIPositions(); // UI位置を更新
     });
 
     observer.observe(document.body, {
@@ -98,6 +99,16 @@ class HolodexChatManager {
     // 初回検出
     console.log('[HCM] 初回検出実行');
     this.detectVideos();
+
+    // リサイズ時にUI位置を更新
+    window.addEventListener('resize', () => {
+      this.updateUIPositions();
+    });
+
+    // スクロール時にUI位置を更新
+    window.addEventListener('scroll', () => {
+      this.updateUIPositions();
+    }, { passive: true });
   }
 
   // Holodexの動画要素を検出
@@ -169,25 +180,9 @@ class HolodexChatManager {
   registerVideo(videoId, element, index) {
     console.log(`[HCM] registerVideo(): ${videoId}`);
 
-    // 親コンテナを探す
-    let container = element.closest('div');
-
-    // コンテナが見つからない場合は、要素を直接ラップ
-    if (!container) {
-      console.warn(`[HCM] コンテナが見つかりません。要素の親を使用します`);
-      container = element.parentElement;
-      if (!container) {
-        console.error(`[HCM] 親要素が見つかりません。スキップします`);
-        return;
-      }
-    }
-
-    console.log(`[HCM] コンテナ:`, container);
-
     const videoData = {
       videoId,
       element,
-      container,
       chatOverlay: null,
       toggleButton: null,
       chatVisible: false,
@@ -212,47 +207,43 @@ class HolodexChatManager {
     }
   }
 
-  // 動画UIを作成
+  // 動画UIを作成（body直下に配置）
   createVideoUI(videoData) {
     console.log(`[HCM] createVideoUI(): ${videoData.videoId}`);
-    const { container, videoId } = videoData;
+    const { element, videoId } = videoData;
 
-    // コンテナが既にrelativeでない場合のみ設定
-    if (getComputedStyle(container).position === 'static') {
-      container.style.position = 'relative';
-    }
-    container.classList.add('holodex-chat-container');
-    container.dataset.videoId = videoId;
-
-    // トグルボタンを作成
+    // トグルボタンを作成（body直下）
     const toggleButton = this.createToggleButton(videoData);
     videoData.toggleButton = toggleButton;
-    container.appendChild(toggleButton);
+    document.body.appendChild(toggleButton);
     console.log(`[HCM] トグルボタン追加: ${videoId}`);
 
-    // チャットオーバーレイを作成
+    // チャットオーバーレイを作成（body直下）
     const chatOverlay = this.createChatOverlay(videoData);
     videoData.chatOverlay = chatOverlay;
-    container.appendChild(chatOverlay);
+    document.body.appendChild(chatOverlay);
     console.log(`[HCM] チャットオーバーレイ追加: ${videoId}`);
 
-    // ホバーでトグルボタンを表示
-    let hoverTimeout;
-    container.addEventListener('mouseenter', () => {
-      clearTimeout(hoverTimeout);
+    // 動画要素にホバーイベント
+    element.addEventListener('mouseenter', () => {
       console.log(`[HCM] マウスエンター: ${videoId}`);
-      toggleButton.style.opacity = '1';
+      toggleButton.style.display = 'flex';
+      this.updateButtonPosition(videoData);
     });
 
-    container.addEventListener('mouseleave', () => {
+    element.addEventListener('mouseleave', () => {
       console.log(`[HCM] マウスリーブ: ${videoId}`);
       // チャットが表示されていない場合のみボタンを隠す
       if (!videoData.chatVisible) {
-        hoverTimeout = setTimeout(() => {
-          toggleButton.style.opacity = '0';
+        setTimeout(() => {
+          toggleButton.style.display = 'none';
         }, 1000);
       }
     });
+
+    // 初期位置を設定
+    this.updateButtonPosition(videoData);
+    this.updateOverlayPosition(videoData);
 
     console.log(`[HCM] UI作成完了: ${videoId}`);
   }
@@ -263,7 +254,7 @@ class HolodexChatManager {
     button.className = 'holodex-chat-toggle-button';
     button.textContent = '💬';
     button.title = 'チャット表示切り替え (tキー)';
-    button.style.opacity = '0'; // 初期状態は非表示
+    button.style.display = 'none'; // 初期状態は非表示
 
     button.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -288,6 +279,7 @@ class HolodexChatManager {
     closeButton.title = '閉じる (Esc)';
     closeButton.addEventListener('click', (e) => {
       e.stopPropagation();
+      console.log(`[HCM] 閉じるボタンクリック: ${videoData.videoId}`);
       this.hideChatOverlay(videoData);
     });
     overlay.appendChild(closeButton);
@@ -297,9 +289,51 @@ class HolodexChatManager {
     chatIframe.src = `https://www.youtube.com/live_chat?v=${videoData.videoId}&embed_domain=${window.location.hostname}`;
     chatIframe.className = 'holodex-chat-iframe';
     chatIframe.allow = 'autoplay; encrypted-media';
+    console.log(`[HCM] チャットiframe作成: ${chatIframe.src}`);
 
     overlay.appendChild(chatIframe);
     return overlay;
+  }
+
+  // ボタンの位置を更新
+  updateButtonPosition(videoData) {
+    const { element, toggleButton } = videoData;
+    if (!element || !toggleButton) return;
+
+    try {
+      const rect = element.getBoundingClientRect();
+      toggleButton.style.position = 'fixed';
+      toggleButton.style.top = `${rect.top + 10}px`;
+      toggleButton.style.left = `${rect.left + rect.width - 54}px`;
+      console.log(`[HCM] ボタン位置更新: ${videoData.videoId}`, { top: rect.top, left: rect.left });
+    } catch (error) {
+      console.error(`[HCM] ボタン位置更新エラー:`, error);
+    }
+  }
+
+  // オーバーレイの位置を更新
+  updateOverlayPosition(videoData) {
+    const { element, chatOverlay } = videoData;
+    if (!element || !chatOverlay) return;
+
+    try {
+      const rect = element.getBoundingClientRect();
+      chatOverlay.style.position = 'fixed';
+      chatOverlay.style.top = `${rect.top}px`;
+      chatOverlay.style.left = `${rect.left + rect.width - 400}px`;
+      chatOverlay.style.height = `${rect.height}px`;
+      console.log(`[HCM] オーバーレイ位置更新: ${videoData.videoId}`, { top: rect.top, left: rect.left, height: rect.height });
+    } catch (error) {
+      console.error(`[HCM] オーバーレイ位置更新エラー:`, error);
+    }
+  }
+
+  // すべてのUI位置を更新
+  updateUIPositions() {
+    this.videos.forEach(videoData => {
+      this.updateButtonPosition(videoData);
+      this.updateOverlayPosition(videoData);
+    });
   }
 
   // チャットオーバーレイを切り替え
@@ -322,7 +356,8 @@ class HolodexChatManager {
 
     videoData.chatVisible = true;
     videoData.chatOverlay.style.display = 'flex';
-    videoData.toggleButton.style.opacity = '1';
+    videoData.toggleButton.style.display = 'flex';
+    this.updateOverlayPosition(videoData);
     console.log(`[HCM] チャットオーバーレイ表示: ${videoData.videoId}`);
 
     chrome.runtime.sendMessage({
