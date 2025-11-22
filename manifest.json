@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Holodex Chat Background",
+  "version": "1.0.0",
+  "description": "Holodex用チャット欄をバックグラウンドで管理し、オーバーレイ表示する拡張機能",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://holodex.net/*",
+    "https://*.youtube.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://holodex.net/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
