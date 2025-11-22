@@ -1,9 +1,17 @@
 /* YouTube Chat iframe内で適用されるCSS */
 /* チャット表示領域を非表示にし、入力欄のみを表示 */
 
-/* チャットメッセージ領域を非表示 */
-#chat {
+/* === チャットメッセージ領域を完全に非表示 === */
+#chat,
+#chat-messages,
+yt-live-chat-item-list-renderer,
+#item-scroller,
+#item-offset,
+#items {
   display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
 
 /* セパレーターを非表示 */
@@ -21,39 +29,125 @@
   display: none !important;
 }
 
-/* 入力欄のみを表示 */
-#panel-pages {
-  display: block !important;
-}
-
-/* コンテンツ領域を調整 */
+/* === コンテンツ領域の調整 === */
 #contents {
   display: flex !important;
   flex-direction: column !important;
-  height: 100% !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
   padding: 0 !important;
-}
-
-/* 入力欄を下部に固定 */
-#panel-pages {
-  margin-top: auto !important;
-  flex-shrink: 0 !important;
-}
-
-/* チャット入力フォームのスタイル調整 */
-yt-live-chat-message-input-renderer {
+  margin: 0 !important;
   background: transparent !important;
-  padding: 12px !important;
 }
 
-/* 入力欄の見た目を改善 */
+/* === 入力欄パネルを表示 === */
+#panel-pages,
+tp-yt-iron-pages {
+  display: block !important;
+  flex: 1 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 400px !important;
+  max-height: 100% !important;
+  overflow: visible !important;
+}
+
+/* 入力フォーム全体 */
+yt-live-chat-message-input-renderer {
+  display: flex !important;
+  flex-direction: column !important;
+  background: transparent !important;
+  padding: 8px !important;
+  height: auto !important;
+  min-height: 100px !important;
+}
+
+/* 絵文字ピッカーコンテナ */
+#picker-container,
+tp-yt-paper-dialog,
+yt-live-chat-emoji-picker-renderer {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 10000 !important;
+  max-height: none !important;
+}
+
+/* 絵文字ピッカーのカテゴリとアイテム */
+#categories,
+#category-items {
+  display: flex !important;
+  visibility: visible !important;
+}
+
+/* 入力欄のコンテナ */
+#input-container {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+}
+
+/* 入力欄本体 */
 #input {
   background: rgba(255, 255, 255, 0.1) !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   border-radius: 4px !important;
+  color: white !important;
+  padding: 8px !important;
+  min-height: 40px !important;
 }
 
-#input:focus {
+#input:focus,
+#input:focus-within {
   background: rgba(255, 255, 255, 0.15) !important;
   border-color: #4a9eff !important;
+  outline: none !important;
+}
+
+/* ボタンコンテナ */
+#buttons,
+.yt-live-chat-message-input-renderer-buttons {
+  display: flex !important;
+  gap: 4px !important;
+  padding: 4px 0 !important;
+}
+
+/* 絵文字ボタン */
+#emoji-picker-button,
+button[aria-label*="emoji"],
+button[aria-label*="絵文字"] {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* 送信ボタン */
+#send-button {
+  display: flex !important;
+}
+
+/* スーパーチャットなど不要な要素を非表示 */
+#show-hide-button,
+yt-live-chat-paid-message-input-renderer {
+  display: none !important;
+}
+
+/* スクロールバーのスタイル */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
