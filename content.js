@@ -212,57 +212,99 @@ class HolodexChatManager {
     const iframeContainer = document.createElement('div');
     iframeContainer.className = 'holodex-chat-iframe-container';
 
-    // YouTubeチャットiframeを作成 - 動画タイプを判定
+    // YouTubeチャットiframeを作成 - 自動フォールバック機能付き
     const baseUrl = window.location.hostname;
     const replayUrl = `https://www.youtube.com/live_chat_replay?v=${videoData.videoId}&embed_domain=${baseUrl}`;
     const liveUrl = `https://www.youtube.com/live_chat?v=${videoData.videoId}&embed_domain=${baseUrl}`;
 
-    console.log(`[Holodex Chat] === iframe作成開始 ===`);
     console.log(`[Holodex Chat] Video ID: ${videoData.videoId}`);
-    console.log(`[Holodex Chat] Base URL: ${baseUrl}`);
-    console.log(`[Holodex Chat] Replay URL: ${replayUrl}`);
-    console.log(`[Holodex Chat] Live URL: ${liveUrl}`);
 
-    // 動画要素のiframe URLから判定
+    // 動画要素のiframe URLから初期判定
     let isLive = false;
     if (videoData.element && videoData.element.src) {
-      const elementSrc = videoData.element.src;
-      console.log(`[Holodex Chat] ${videoData.videoId}: 要素のURL: ${elementSrc}`);
-      if (elementSrc.includes('/live/')) {
-        isLive = true;
-        console.log(`[Holodex Chat] ${videoData.videoId}: ライブ配信と判定 (/live/ を検出)`);
-      } else {
-        console.log(`[Holodex Chat] ${videoData.videoId}: アーカイブと判定`);
-      }
+      isLive = videoData.element.src.includes('/live/');
     }
 
-    // 適切なURLを選択
-    const chatUrl = isLive ? liveUrl : replayUrl;
+    // 適切なURLを選択（初回）
+    const primaryUrl = isLive ? liveUrl : replayUrl;
+    const fallbackUrl = isLive ? replayUrl : liveUrl;
+
     const chatIframe = document.createElement('iframe');
     chatIframe.className = 'holodex-chat-iframe';
     chatIframe.allow = 'autoplay; encrypted-media';
-    chatIframe.src = chatUrl;
+    chatIframe.src = primaryUrl;
 
-    console.log(`[Holodex Chat] ${videoData.videoId}: ${isLive ? 'ライブ' : 'リプレイ'}URLで読み込み開始: ${chatUrl}`);
+    console.log(`[Holodex Chat] ${videoData.videoId}: 初回試行 - ${isLive ? 'ライブ' : 'リプレイ'}URL: ${primaryUrl}`);
+
+    // フォールバック処理用のタイマー
+    let loadCheckTimer = null;
+    let hasTriedFallback = false;
+
+    const tryFallback = () => {
+      if (!hasTriedFallback) {
+        hasTriedFallback = true;
+        console.log(`[Holodex Chat] ${videoData.videoId}: フォールバック試行 - ${isLive ? 'リプレイ' : 'ライブ'}URL: ${fallbackUrl}`);
+        chatIframe.src = fallbackUrl;
+      }
+    };
 
     // iframe読み込み完了イベント
     chatIframe.addEventListener('load', () => {
-      console.log(`[Holodex Chat] ${videoData.videoId}: iframe読み込み完了`);
-      console.log(`[Holodex Chat] ${videoData.videoId}: 現在のURL: ${chatIframe.src}`);
+      // タイマーをクリア
+      if (loadCheckTimer) {
+        clearTimeout(loadCheckTimer);
+        loadCheckTimer = null;
+      }
+
+      // 読み込み成功を確認（3秒後にチェック）
+      setTimeout(() => {
+        try {
+          // iframeのコンテンツが空または読み込みエラーの場合、フォールバックを試行
+          const iframeDoc = chatIframe.contentDocument || chatIframe.contentWindow?.document;
+
+          // アクセスできない場合（CORS）は正常と判断
+          if (!iframeDoc) {
+            console.log(`[Holodex Chat] ${videoData.videoId}: チャット読み込み成功（CORS保護）`);
+            return;
+          }
+
+          // ドキュメントが空の場合はフォールバック
+          const bodyText = iframeDoc.body?.innerText || '';
+          if (bodyText.length < 50 && !hasTriedFallback) {
+            console.log(`[Holodex Chat] ${videoData.videoId}: コンテンツが不十分、フォールバック試行`);
+            tryFallback();
+          } else {
+            console.log(`[Holodex Chat] ${videoData.videoId}: チャット読み込み成功`);
+          }
+        } catch (e) {
+          // CORS エラーは正常（YouTubeが読み込まれている）
+          console.log(`[Holodex Chat] ${videoData.videoId}: チャット読み込み成功（CORS保護）`);
+        }
+      }, 3000);
     });
 
     // iframeエラーイベント
     chatIframe.addEventListener('error', (e) => {
-      console.error(`[Holodex Chat] ${videoData.videoId}: iframeエラー:`, e);
+      console.error(`[Holodex Chat] ${videoData.videoId}: iframeエラー、フォールバック試行`, e);
+      tryFallback();
     });
+
+    // 15秒経っても読み込みが完了しない場合、フォールバックを試行
+    loadCheckTimer = setTimeout(() => {
+      if (!hasTriedFallback) {
+        console.log(`[Holodex Chat] ${videoData.videoId}: タイムアウト、フォールバック試行`);
+        tryFallback();
+      }
+    }, 15000);
 
     iframeContainer.appendChild(chatIframe);
     overlay.appendChild(iframeContainer);
 
-    // videoDataにiframeを保存（後で切り替え可能にする）
+    // videoDataにiframeを保存
     videoData.chatIframe = chatIframe;
     videoData.liveUrl = liveUrl;
     videoData.replayUrl = replayUrl;
+    videoData.loadCheckTimer = loadCheckTimer;
 
     return overlay;
   }
@@ -418,6 +460,12 @@ class HolodexChatManager {
   hideChatOverlay(videoData) {
     videoData.chatVisible = false;
     videoData.chatOverlay.style.display = 'none';
+
+    // タイマーのクリーンアップ
+    if (videoData.loadCheckTimer) {
+      clearTimeout(videoData.loadCheckTimer);
+      videoData.loadCheckTimer = null;
+    }
 
     if (chrome.runtime && chrome.runtime.sendMessage) {
       chrome.runtime.sendMessage({
