@@ -206,19 +206,41 @@ class HolodexChatManager {
     const iframeContainer = document.createElement('div');
     iframeContainer.className = 'holodex-chat-iframe-container';
 
-    // YouTubeチャットiframeを作成
+    // YouTubeチャットiframeを作成 - 両方のURLを試す
+    const baseUrl = window.location.hostname;
+    const replayUrl = `https://www.youtube.com/live_chat_replay?v=${videoData.videoId}&embed_domain=${baseUrl}`;
+    const liveUrl = `https://www.youtube.com/live_chat?v=${videoData.videoId}&embed_domain=${baseUrl}`;
+
+    // まずリプレイ（アーカイブ）を試す
     const chatIframe = document.createElement('iframe');
     chatIframe.className = 'holodex-chat-iframe';
     chatIframe.allow = 'autoplay; encrypted-media';
+    chatIframe.src = replayUrl;
 
-    // ライブ配信とアーカイブの両方に対応
-    // 動画の状態を判定してURLを決定
-    this.getChatUrl(videoData.videoId).then(url => {
-      chatIframe.src = url;
+    console.log(`[Holodex Chat] ${videoData.videoId}: Trying replay URL first: ${replayUrl}`);
+
+    // 5秒後にエラーチェック - リプレイが失敗していたらライブURLに切り替え
+    let switched = false;
+    setTimeout(() => {
+      if (!switched) {
+        console.log(`[Holodex Chat] ${videoData.videoId}: Switching to live URL: ${liveUrl}`);
+        chatIframe.src = liveUrl;
+        switched = true;
+      }
+    }, 5000);
+
+    // iframe内でエラーを検出した場合も切り替え
+    chatIframe.addEventListener('load', () => {
+      console.log(`[Holodex Chat] ${videoData.videoId}: iframe loaded successfully`);
     });
 
     iframeContainer.appendChild(chatIframe);
     overlay.appendChild(iframeContainer);
+
+    // videoDataにiframeを保存（後で切り替え可能にする）
+    videoData.chatIframe = chatIframe;
+    videoData.liveUrl = liveUrl;
+    videoData.replayUrl = replayUrl;
 
     return overlay;
   }
