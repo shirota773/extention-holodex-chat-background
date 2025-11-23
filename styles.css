@@ -47,6 +47,15 @@
   pointer-events: auto;
 }
 
+/* iframeコンテナ - 入力欄のみを表示 */
+.holodex-chat-iframe-container {
+  width: 100%;
+  height: 80px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
 @keyframes slideIn {
   from {
     transform: translateX(100%);
@@ -89,13 +98,16 @@
   transform: scale(0.9);
 }
 
-/* チャットiframe */
+/* チャットiframe - フルサイズで読み込み、マージンで入力欄のみ表示 */
 .holodex-chat-iframe {
   width: 100%;
-  height: 100%;
+  height: 600px;
+  min-height: 600px;
   border: none;
   background: transparent;
-  flex: 1;
+  display: block;
+  margin-top: -85%;
+  transform-origin: top left;
 }
 
 /* レスポンシブ対応 */

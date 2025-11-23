@@ -202,13 +202,26 @@ class HolodexChatManager {
     });
     overlay.appendChild(closeButton);
 
+    // iframeコンテナを作成（入力欄のみが見えるようにクリップ）
+    const iframeContainer = document.createElement('div');
+    iframeContainer.className = 'holodex-chat-iframe-container';
+
     // YouTubeチャットiframeを作成
     const chatIframe = document.createElement('iframe');
     chatIframe.src = `https://www.youtube.com/live_chat?v=${videoData.videoId}&embed_domain=${window.location.hostname}`;
     chatIframe.className = 'holodex-chat-iframe';
     chatIframe.allow = 'autoplay; encrypted-media';
 
-    overlay.appendChild(chatIframe);
+    // iframe読み込み後に入力欄位置にスクロール
+    chatIframe.addEventListener('load', () => {
+      // iframeを下にスクロールして入力欄のみを表示
+      // YouTubeチャットの入力欄は下部にあるため、上にマイナスマージンを設定
+      chatIframe.style.marginTop = '-85%';
+    });
+
+    iframeContainer.appendChild(chatIframe);
+    overlay.appendChild(iframeContainer);
+
     return overlay;
   }
 

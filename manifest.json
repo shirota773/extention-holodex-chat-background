@@ -17,12 +17,6 @@
       "js": ["content.js"],
       "css": ["styles.css"],
       "run_at": "document_end"
-    },
-    {
-      "matches": ["https://www.youtube.com/live_chat*"],
-      "css": ["chat-iframe.css"],
-      "run_at": "document_end",
-      "all_frames": true
     }
   ],
   "background": {
