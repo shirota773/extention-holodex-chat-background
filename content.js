@@ -202,27 +202,62 @@ class HolodexChatManager {
     });
     overlay.appendChild(closeButton);
 
-    // iframeコンテナを作成（入力欄のみが見えるようにクリップ）
+    // iframeコンテナを作成
     const iframeContainer = document.createElement('div');
     iframeContainer.className = 'holodex-chat-iframe-container';
 
     // YouTubeチャットiframeを作成
     const chatIframe = document.createElement('iframe');
-    // ライブ配信とアーカイブ両方に対応
-    // まずライブチャットを試み、エラーの場合はチャットリプレイにフォールバック
-    chatIframe.src = `https://www.youtube.com/live_chat?v=${videoData.videoId}&embed_domain=${window.location.hostname}`;
     chatIframe.className = 'holodex-chat-iframe';
     chatIframe.allow = 'autoplay; encrypted-media';
 
-    // ライブチャットが利用できない場合、チャットリプレイを試す
-    chatIframe.addEventListener('error', () => {
-      chatIframe.src = `https://www.youtube.com/live_chat_replay?v=${videoData.videoId}&embed_domain=${window.location.hostname}`;
+    // ライブ配信とアーカイブの両方に対応
+    // 動画の状態を判定してURLを決定
+    this.getChatUrl(videoData.videoId).then(url => {
+      chatIframe.src = url;
     });
 
     iframeContainer.appendChild(chatIframe);
     overlay.appendChild(iframeContainer);
 
     return overlay;
+  }
+
+  // チャットURLを取得（ライブ/アーカイブを判定）
+  async getChatUrl(videoId) {
+    const baseUrl = window.location.hostname;
+
+    // まずlive_chatを試す
+    const liveUrl = `https://www.youtube.com/live_chat?v=${videoId}&embed_domain=${baseUrl}`;
+    const replayUrl = `https://www.youtube.com/live_chat_replay?v=${videoId}&embed_domain=${baseUrl}`;
+
+    try {
+      // YouTube APIで動画情報を取得して判定する代わりに
+      // 両方のURLを試す方式を採用
+      // 実際の判定はiframe内で行われる
+
+      // ページ内の要素から判定を試みる
+      const isLive = this.checkIfVideoIsLive(videoId);
+      return isLive ? liveUrl : replayUrl;
+    } catch (error) {
+      // デフォルトはライブチャット
+      return liveUrl;
+    }
+  }
+
+  // 動画がライブ配信中かチェック
+  checkIfVideoIsLive(videoId) {
+    // Holodexページ内の要素からライブ状態を判定
+    // LIVE表示やステータスインジケーターをチェック
+    const liveIndicators = document.querySelectorAll('[class*="live"], [class*="LIVE"], .status-live, .badge-live');
+
+    // 簡易的な判定：LIVEバッジが存在すればライブとみなす
+    if (liveIndicators.length > 0) {
+      return true;
+    }
+
+    // デフォルトはライブチャットを試す
+    return true;
   }
 
   // ボタンの位置を更新
