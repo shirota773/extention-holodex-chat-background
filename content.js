@@ -210,7 +210,7 @@ class HolodexChatManager {
     const iframeContainer = document.createElement('div');
     iframeContainer.className = 'holodex-chat-iframe-container';
 
-    // YouTubeチャットiframeを作成 - 両方のURLを試す
+    // YouTubeチャットiframeを作成 - 動画タイプを判定
     const baseUrl = window.location.hostname;
     const replayUrl = `https://www.youtube.com/live_chat_replay?v=${videoData.videoId}&embed_domain=${baseUrl}`;
     const liveUrl = `https://www.youtube.com/live_chat?v=${videoData.videoId}&embed_domain=${baseUrl}`;
@@ -221,39 +221,37 @@ class HolodexChatManager {
     console.log(`[Holodex Chat] Replay URL: ${replayUrl}`);
     console.log(`[Holodex Chat] Live URL: ${liveUrl}`);
 
-    // まずリプレイ（アーカイブ）を試す
+    // 動画要素のiframe URLから判定
+    let isLive = false;
+    if (videoData.element && videoData.element.src) {
+      const elementSrc = videoData.element.src;
+      console.log(`[Holodex Chat] ${videoData.videoId}: 要素のURL: ${elementSrc}`);
+      if (elementSrc.includes('/live/')) {
+        isLive = true;
+        console.log(`[Holodex Chat] ${videoData.videoId}: ライブ配信と判定 (/live/ を検出)`);
+      } else {
+        console.log(`[Holodex Chat] ${videoData.videoId}: アーカイブと判定`);
+      }
+    }
+
+    // 適切なURLを選択
+    const chatUrl = isLive ? liveUrl : replayUrl;
     const chatIframe = document.createElement('iframe');
     chatIframe.className = 'holodex-chat-iframe';
     chatIframe.allow = 'autoplay; encrypted-media';
-    chatIframe.src = replayUrl;
+    chatIframe.src = chatUrl;
 
-    console.log(`[Holodex Chat] ${videoData.videoId}: リプレイURLで読み込み開始`);
-
-    // 5秒後にエラーチェック - リプレイが失敗していたらライブURLに切り替え
-    let switched = false;
-    const switchTimer = setTimeout(() => {
-      if (!switched) {
-        console.log(`[Holodex Chat] ${videoData.videoId}: 5秒経過 - ライブURLに切り替え`);
-        chatIframe.src = liveUrl;
-        switched = true;
-      }
-    }, 5000);
+    console.log(`[Holodex Chat] ${videoData.videoId}: ${isLive ? 'ライブ' : 'リプレイ'}URLで読み込み開始: ${chatUrl}`);
 
     // iframe読み込み完了イベント
     chatIframe.addEventListener('load', () => {
-      console.log(`[Holodex Chat] ${videoData.videoId}: iframe読み込み完了 (switched: ${switched})`);
+      console.log(`[Holodex Chat] ${videoData.videoId}: iframe読み込み完了`);
       console.log(`[Holodex Chat] ${videoData.videoId}: 現在のURL: ${chatIframe.src}`);
     });
 
     // iframeエラーイベント
     chatIframe.addEventListener('error', (e) => {
       console.error(`[Holodex Chat] ${videoData.videoId}: iframeエラー:`, e);
-      if (!switched) {
-        console.log(`[Holodex Chat] ${videoData.videoId}: エラーによりライブURLに即座に切り替え`);
-        clearTimeout(switchTimer);
-        chatIframe.src = liveUrl;
-        switched = true;
-      }
     });
 
     iframeContainer.appendChild(chatIframe);
