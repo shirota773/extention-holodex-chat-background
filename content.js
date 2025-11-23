@@ -227,21 +227,20 @@ class HolodexChatManager {
   async getChatUrl(videoId) {
     const baseUrl = window.location.hostname;
 
-    // まずlive_chatを試す
     const liveUrl = `https://www.youtube.com/live_chat?v=${videoId}&embed_domain=${baseUrl}`;
     const replayUrl = `https://www.youtube.com/live_chat_replay?v=${videoId}&embed_domain=${baseUrl}`;
 
     try {
-      // YouTube APIで動画情報を取得して判定する代わりに
-      // 両方のURLを試す方式を採用
-      // 実際の判定はiframe内で行われる
-
       // ページ内の要素から判定を試みる
       const isLive = this.checkIfVideoIsLive(videoId);
-      return isLive ? liveUrl : replayUrl;
+      const selectedUrl = isLive ? liveUrl : replayUrl;
+
+      console.log(`[Holodex Chat] Video ${videoId}: ${isLive ? 'LIVE' : 'ARCHIVE'} - Using ${selectedUrl}`);
+      return selectedUrl;
     } catch (error) {
-      // デフォルトはライブチャット
-      return liveUrl;
+      console.error('[Holodex Chat] URL判定エラー:', error);
+      // デフォルトはアーカイブチャット（replayUrl）
+      return replayUrl;
     }
   }
 
@@ -254,21 +253,25 @@ class HolodexChatManager {
     for (const iframe of iframes) {
       const src = iframe.src;
       if (src.includes(videoId)) {
-        // /live/または/watch?v=で始まるURLをチェック
         if (src.includes('/live/')) {
+          console.log(`[Holodex Chat] ${videoId}: LIVE detected from iframe URL (${src})`);
           return true;
         }
+        console.log(`[Holodex Chat] ${videoId}: iframe found but not /live/ (${src})`);
       }
     }
 
     // 2. ページ内の動画情報をチェック
     const videoElements = document.querySelectorAll(`[data-video-id="${videoId}"]`);
     for (const element of videoElements) {
-      // data属性やクラスからステータスを判定
-      const isLive = element.getAttribute('data-status') === 'live' ||
-                     element.classList.contains('live') ||
-                     element.closest('[class*="live"]');
-      if (isLive) {
+      const dataStatus = element.getAttribute('data-status');
+      const hasLiveClass = element.classList.contains('live');
+      const hasLiveParent = element.closest('[class*="live"]') !== null;
+
+      console.log(`[Holodex Chat] ${videoId}: data-status="${dataStatus}", hasLiveClass=${hasLiveClass}, hasLiveParent=${hasLiveParent}`);
+
+      if (dataStatus === 'live' || hasLiveClass || hasLiveParent) {
+        console.log(`[Holodex Chat] ${videoId}: LIVE detected from element attributes`);
         return true;
       }
     }
@@ -276,17 +279,19 @@ class HolodexChatManager {
     // 3. LIVEバッジの存在をチェック（より厳密に）
     const liveBadges = document.querySelectorAll('.badge-live, .live-badge, [class*="LiveBadge"]');
     if (liveBadges.length > 0) {
+      console.log(`[Holodex Chat] ${videoId}: LIVE detected from ${liveBadges.length} badges`);
       return true;
     }
 
     // 4. ページURLをチェック
     const url = window.location.href;
     if (url.includes('/watch') && !url.includes('type=stream')) {
-      // watchページでstream指定がない場合はアーカイブの可能性が高い
+      console.log(`[Holodex Chat] ${videoId}: ARCHIVE detected from URL pattern (${url})`);
       return false;
     }
 
     // デフォルトはアーカイブとして扱う（チャットリプレイを試す）
+    console.log(`[Holodex Chat] ${videoId}: Defaulting to ARCHIVE (no indicators found)`);
     return false;
   }
 
