@@ -112,6 +112,8 @@ class HolodexChatManager {
 
   // 動画を登録し、UIを追加
   registerVideo(videoId, element, index) {
+    console.log(`[Holodex Chat] 動画を登録: ${videoId} (index: ${index})`);
+
     const videoData = {
       videoId,
       element,
@@ -124,6 +126,8 @@ class HolodexChatManager {
     try {
       this.createVideoUI(videoData);
       this.videos.set(videoId, videoData);
+
+      console.log(`[Holodex Chat] 動画登録完了: ${videoId}, 総動画数: ${this.videos.size}`);
 
       chrome.runtime.sendMessage({
         action: 'registerVideo',
@@ -211,27 +215,45 @@ class HolodexChatManager {
     const replayUrl = `https://www.youtube.com/live_chat_replay?v=${videoData.videoId}&embed_domain=${baseUrl}`;
     const liveUrl = `https://www.youtube.com/live_chat?v=${videoData.videoId}&embed_domain=${baseUrl}`;
 
+    console.log(`[Holodex Chat] === iframe作成開始 ===`);
+    console.log(`[Holodex Chat] Video ID: ${videoData.videoId}`);
+    console.log(`[Holodex Chat] Base URL: ${baseUrl}`);
+    console.log(`[Holodex Chat] Replay URL: ${replayUrl}`);
+    console.log(`[Holodex Chat] Live URL: ${liveUrl}`);
+
     // まずリプレイ（アーカイブ）を試す
     const chatIframe = document.createElement('iframe');
     chatIframe.className = 'holodex-chat-iframe';
     chatIframe.allow = 'autoplay; encrypted-media';
     chatIframe.src = replayUrl;
 
-    console.log(`[Holodex Chat] ${videoData.videoId}: Trying replay URL first: ${replayUrl}`);
+    console.log(`[Holodex Chat] ${videoData.videoId}: リプレイURLで読み込み開始`);
 
     // 5秒後にエラーチェック - リプレイが失敗していたらライブURLに切り替え
     let switched = false;
-    setTimeout(() => {
+    const switchTimer = setTimeout(() => {
       if (!switched) {
-        console.log(`[Holodex Chat] ${videoData.videoId}: Switching to live URL: ${liveUrl}`);
+        console.log(`[Holodex Chat] ${videoData.videoId}: 5秒経過 - ライブURLに切り替え`);
         chatIframe.src = liveUrl;
         switched = true;
       }
     }, 5000);
 
-    // iframe内でエラーを検出した場合も切り替え
+    // iframe読み込み完了イベント
     chatIframe.addEventListener('load', () => {
-      console.log(`[Holodex Chat] ${videoData.videoId}: iframe loaded successfully`);
+      console.log(`[Holodex Chat] ${videoData.videoId}: iframe読み込み完了 (switched: ${switched})`);
+      console.log(`[Holodex Chat] ${videoData.videoId}: 現在のURL: ${chatIframe.src}`);
+    });
+
+    // iframeエラーイベント
+    chatIframe.addEventListener('error', (e) => {
+      console.error(`[Holodex Chat] ${videoData.videoId}: iframeエラー:`, e);
+      if (!switched) {
+        console.log(`[Holodex Chat] ${videoData.videoId}: エラーによりライブURLに即座に切り替え`);
+        clearTimeout(switchTimer);
+        chatIframe.src = liveUrl;
+        switched = true;
+      }
     });
 
     iframeContainer.appendChild(chatIframe);
@@ -367,6 +389,8 @@ class HolodexChatManager {
 
   // チャットオーバーレイを表示
   showChatOverlay(videoData) {
+    console.log(`[Holodex Chat] チャットオーバーレイを表示: ${videoData.videoId}`);
+
     // 他のすべてのチャットを非表示
     this.videos.forEach((data, id) => {
       if (id !== videoData.videoId && data.chatVisible) {
@@ -378,6 +402,8 @@ class HolodexChatManager {
     videoData.chatOverlay.style.display = 'flex';
     videoData.toggleButton.style.display = 'flex';
     this.updateOverlayPosition(videoData);
+
+    console.log(`[Holodex Chat] チャットオーバーレイ表示完了: ${videoData.videoId}`);
 
     chrome.runtime.sendMessage({
       action: 'updateChatVisibility',
@@ -474,15 +500,24 @@ class HolodexChatManager {
 
 // ページ読み込み時に初期化
 function initializeExtension() {
+  console.log('[Holodex Chat] ========================================');
+  console.log('[Holodex Chat] 拡張機能の初期化を開始');
+  console.log('[Holodex Chat] ページURL:', window.location.href);
+  console.log('[Holodex Chat] ホスト名:', window.location.hostname);
+  console.log('[Holodex Chat] ========================================');
+
   try {
     window.holodexChatManager = new HolodexChatManager();
+    console.log('[Holodex Chat] HolodexChatManager初期化完了');
   } catch (error) {
     console.error('[Holodex Chat] 初期化エラー:', error);
   }
 }
 
 if (document.readyState === 'loading') {
+  console.log('[Holodex Chat] DOMContentLoadedを待機中...');
   document.addEventListener('DOMContentLoaded', initializeExtension);
 } else {
+  console.log('[Holodex Chat] DOMは既に読み込み済み、即座に初期化');
   initializeExtension();
 }
