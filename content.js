@@ -208,15 +208,15 @@ class HolodexChatManager {
 
     // YouTubeチャットiframeを作成
     const chatIframe = document.createElement('iframe');
+    // ライブ配信とアーカイブ両方に対応
+    // まずライブチャットを試み、エラーの場合はチャットリプレイにフォールバック
     chatIframe.src = `https://www.youtube.com/live_chat?v=${videoData.videoId}&embed_domain=${window.location.hostname}`;
     chatIframe.className = 'holodex-chat-iframe';
     chatIframe.allow = 'autoplay; encrypted-media';
 
-    // iframe読み込み後に入力欄位置にスクロール
-    chatIframe.addEventListener('load', () => {
-      // iframeを下にスクロールして入力欄のみを表示
-      // YouTubeチャットの入力欄は下部にあるため、上にマイナスマージンを設定
-      chatIframe.style.marginTop = '-85%';
+    // ライブチャットが利用できない場合、チャットリプレイを試す
+    chatIframe.addEventListener('error', () => {
+      chatIframe.src = `https://www.youtube.com/live_chat_replay?v=${videoData.videoId}&embed_domain=${window.location.hostname}`;
     });
 
     iframeContainer.appendChild(chatIframe);
