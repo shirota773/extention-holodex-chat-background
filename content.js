@@ -248,16 +248,46 @@ class HolodexChatManager {
   // 動画がライブ配信中かチェック
   checkIfVideoIsLive(videoId) {
     // Holodexページ内の要素からライブ状態を判定
-    // LIVE表示やステータスインジケーターをチェック
-    const liveIndicators = document.querySelectorAll('[class*="live"], [class*="LIVE"], .status-live, .badge-live');
 
-    // 簡易的な判定：LIVEバッジが存在すればライブとみなす
-    if (liveIndicators.length > 0) {
+    // 1. iframe要素のURLをチェック
+    const iframes = document.querySelectorAll('iframe[src*="youtube.com"]');
+    for (const iframe of iframes) {
+      const src = iframe.src;
+      if (src.includes(videoId)) {
+        // /live/または/watch?v=で始まるURLをチェック
+        if (src.includes('/live/')) {
+          return true;
+        }
+      }
+    }
+
+    // 2. ページ内の動画情報をチェック
+    const videoElements = document.querySelectorAll(`[data-video-id="${videoId}"]`);
+    for (const element of videoElements) {
+      // data属性やクラスからステータスを判定
+      const isLive = element.getAttribute('data-status') === 'live' ||
+                     element.classList.contains('live') ||
+                     element.closest('[class*="live"]');
+      if (isLive) {
+        return true;
+      }
+    }
+
+    // 3. LIVEバッジの存在をチェック（より厳密に）
+    const liveBadges = document.querySelectorAll('.badge-live, .live-badge, [class*="LiveBadge"]');
+    if (liveBadges.length > 0) {
       return true;
     }
 
-    // デフォルトはライブチャットを試す
-    return true;
+    // 4. ページURLをチェック
+    const url = window.location.href;
+    if (url.includes('/watch') && !url.includes('type=stream')) {
+      // watchページでstream指定がない場合はアーカイブの可能性が高い
+      return false;
+    }
+
+    // デフォルトはアーカイブとして扱う（チャットリプレイを試す）
+    return false;
   }
 
   // ボタンの位置を更新
