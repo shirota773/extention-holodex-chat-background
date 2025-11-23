@@ -212,13 +212,6 @@ class HolodexChatManager {
     chatIframe.className = 'holodex-chat-iframe';
     chatIframe.allow = 'autoplay; encrypted-media';
 
-    // iframe読み込み後に入力欄位置にスクロール
-    chatIframe.addEventListener('load', () => {
-      // iframeを下にスクロールして入力欄のみを表示
-      // YouTubeチャットの入力欄は下部にあるため、上にマイナスマージンを設定
-      chatIframe.style.marginTop = '-85%';
-    });
-
     iframeContainer.appendChild(chatIframe);
     overlay.appendChild(iframeContainer);
 
