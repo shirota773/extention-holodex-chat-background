@@ -129,11 +129,13 @@ class HolodexChatManager {
 
       console.log(`[Holodex Chat] 動画登録完了: ${videoId}, 総動画数: ${this.videos.size}`);
 
-      chrome.runtime.sendMessage({
-        action: 'registerVideo',
-        videoId,
-        tabId: chrome.runtime.id
-      });
+      if (chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({
+          action: 'registerVideo',
+          videoId,
+          tabId: chrome.runtime.id
+        });
+      }
     } catch (error) {
       console.error('[Holodex Chat] UI作成エラー:', error);
     }
@@ -403,11 +405,13 @@ class HolodexChatManager {
 
     console.log(`[Holodex Chat] チャットオーバーレイ表示完了: ${videoData.videoId}`);
 
-    chrome.runtime.sendMessage({
-      action: 'updateChatVisibility',
-      videoId: videoData.videoId,
-      visible: true
-    });
+    if (chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({
+        action: 'updateChatVisibility',
+        videoId: videoData.videoId,
+        visible: true
+      });
+    }
   }
 
   // チャットオーバーレイを非表示
@@ -415,11 +419,13 @@ class HolodexChatManager {
     videoData.chatVisible = false;
     videoData.chatOverlay.style.display = 'none';
 
-    chrome.runtime.sendMessage({
-      action: 'updateChatVisibility',
-      videoId: videoData.videoId,
-      visible: false
-    });
+    if (chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({
+        action: 'updateChatVisibility',
+        videoId: videoData.videoId,
+        visible: false
+      });
+    }
   }
 
   // キーボードショートカットを設定
