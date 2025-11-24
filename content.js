@@ -251,15 +251,22 @@ class HolodexChatManager {
         loadCheckTimer = null;
       }
 
-      // 読み込み成功を確認（3秒後にチェック）
+      // 読み込み成功を確認（2秒後にチェック）
       setTimeout(() => {
         try {
           // iframeのコンテンツが空または読み込みエラーの場合、フォールバックを試行
           const iframeDoc = chatIframe.contentDocument || chatIframe.contentWindow?.document;
 
-          // アクセスできない場合（CORS）は正常と判断
+          // アクセスできない場合（CORS）も、念のため少し待ってからフォールバック判定
           if (!iframeDoc) {
-            console.log(`[Holodex Chat] ${videoData.videoId}: チャット読み込み成功（CORS保護）`);
+            console.log(`[Holodex Chat] ${videoData.videoId}: CORS保護により内容確認不可、2秒後にフォールバック判定`);
+            // CORS保護の場合、さらに2秒待ってからフォールバックを試行
+            setTimeout(() => {
+              if (!hasTriedFallback) {
+                console.log(`[Holodex Chat] ${videoData.videoId}: アーカイブの可能性あり、フォールバック試行`);
+                tryFallback();
+              }
+            }, 2000);
             return;
           }
 
@@ -272,10 +279,16 @@ class HolodexChatManager {
             console.log(`[Holodex Chat] ${videoData.videoId}: チャット読み込み成功`);
           }
         } catch (e) {
-          // CORS エラーは正常（YouTubeが読み込まれている）
-          console.log(`[Holodex Chat] ${videoData.videoId}: チャット読み込み成功（CORS保護）`);
+          // CORS エラーの場合も、念のためフォールバックを試行
+          console.log(`[Holodex Chat] ${videoData.videoId}: CORS保護、2秒後にフォールバック判定`);
+          setTimeout(() => {
+            if (!hasTriedFallback) {
+              console.log(`[Holodex Chat] ${videoData.videoId}: アーカイブの可能性あり、フォールバック試行`);
+              tryFallback();
+            }
+          }, 2000);
         }
-      }, 3000);
+      }, 2000);
     });
 
     // iframeエラーイベント
@@ -284,13 +297,13 @@ class HolodexChatManager {
       tryFallback();
     });
 
-    // 15秒経っても読み込みが完了しない場合、フォールバックを試行
+    // 6秒経っても読み込みが完了しない場合、フォールバックを試行
     loadCheckTimer = setTimeout(() => {
       if (!hasTriedFallback) {
-        console.log(`[Holodex Chat] ${videoData.videoId}: タイムアウト、フォールバック試行`);
+        console.log(`[Holodex Chat] ${videoData.videoId}: タイムアウト（6秒）、フォールバック試行`);
         tryFallback();
       }
-    }, 15000);
+    }, 6000);
 
     iframeContainer.appendChild(chatIframe);
     overlay.appendChild(iframeContainer);
