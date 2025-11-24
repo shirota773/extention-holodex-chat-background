@@ -3,6 +3,40 @@
 
 const chatStates = new Map();
 
+// X-Frame-Optionsヘッダーを削除してYouTubeチャットの埋め込みを可能にする
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('[Holodex Chat] 拡張機能インストール完了、declarativeNetRequestルール設定');
+
+  const rules = [
+    {
+      id: 1,
+      priority: 1,
+      action: {
+        type: 'modifyHeaders',
+        responseHeaders: [
+          {
+            header: 'X-Frame-Options',
+            operation: 'remove'
+          }
+        ]
+      },
+      condition: {
+        urlFilter: '*://www.youtube.com/live_chat*',
+        resourceTypes: ['sub_frame']
+      }
+    }
+  ];
+
+  chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [1],
+    addRules: rules
+  }).then(() => {
+    console.log('[Holodex Chat] declarativeNetRequestルール適用完了');
+  }).catch((error) => {
+    console.error('[Holodex Chat] declarativeNetRequestルール適用エラー:', error);
+  });
+});
+
 // チャット状態の管理
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   switch (request.action) {
