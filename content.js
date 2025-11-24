@@ -214,27 +214,22 @@ class HolodexChatManager {
 
     // YouTubeチャットiframeを作成 - 自動フォールバック機能付き
     const baseUrl = window.location.hostname;
-    const replayUrl = `https://www.youtube.com/live_chat_replay?v=${videoData.videoId}&embed_domain=${baseUrl}`;
     const liveUrl = `https://www.youtube.com/live_chat?v=${videoData.videoId}&embed_domain=${baseUrl}`;
+    const replayUrl = `https://www.youtube.com/live_chat_replay?v=${videoData.videoId}&embed_domain=${baseUrl}`;
 
     console.log(`[Holodex Chat] Video ID: ${videoData.videoId}`);
 
-    // 動画要素のiframe URLから初期判定
-    let isLive = false;
-    if (videoData.element && videoData.element.src) {
-      isLive = videoData.element.src.includes('/live/');
-    }
-
-    // 適切なURLを選択（初回）
-    const primaryUrl = isLive ? liveUrl : replayUrl;
-    const fallbackUrl = isLive ? replayUrl : liveUrl;
+    // デフォルトはlive_chatを使用（ライブ配信に対応）
+    // アーカイブの場合は自動的にreplayにフォールバック
+    const primaryUrl = liveUrl;
+    const fallbackUrl = replayUrl;
 
     const chatIframe = document.createElement('iframe');
     chatIframe.className = 'holodex-chat-iframe';
     chatIframe.allow = 'autoplay; encrypted-media';
     chatIframe.src = primaryUrl;
 
-    console.log(`[Holodex Chat] ${videoData.videoId}: 初回試行 - ${isLive ? 'ライブ' : 'リプレイ'}URL: ${primaryUrl}`);
+    console.log(`[Holodex Chat] ${videoData.videoId}: 初回試行 - ライブチャットURL: ${primaryUrl}`);
 
     // フォールバック処理用のタイマー
     let loadCheckTimer = null;
@@ -243,7 +238,7 @@ class HolodexChatManager {
     const tryFallback = () => {
       if (!hasTriedFallback) {
         hasTriedFallback = true;
-        console.log(`[Holodex Chat] ${videoData.videoId}: フォールバック試行 - ${isLive ? 'リプレイ' : 'ライブ'}URL: ${fallbackUrl}`);
+        console.log(`[Holodex Chat] ${videoData.videoId}: フォールバック試行 - リプレイURL: ${fallbackUrl}`);
         chatIframe.src = fallbackUrl;
       }
     };
