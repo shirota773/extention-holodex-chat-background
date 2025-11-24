@@ -110,6 +110,107 @@ class HolodexChatManager {
     return null;
   }
 
+  // YouTubeからチャンネルIDを取得（oembed API使用）
+  async fetchChannelId(videoId) {
+    try {
+      const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+      if (!response.ok) {
+        console.error(`[Holodex Chat] ${videoId}: oEmbed API失敗`);
+        return null;
+      }
+      const data = await response.json();
+
+      // author_urlからチャンネルIDを抽出
+      // 例: "https://www.youtube.com/@ChannelName" または "https://www.youtube.com/channel/UCxxxxx"
+      const authorUrl = data.author_url;
+      if (authorUrl) {
+        const channelMatch = authorUrl.match(/\/channel\/([^\/\?]+)/);
+        if (channelMatch) {
+          console.log(`[Holodex Chat] ${videoId}: チャンネルID取得成功: ${channelMatch[1]}`);
+          return channelMatch[1];
+        }
+
+        // @ハンドル形式の場合、残念ながらチャンネルIDは取得できない
+        // この場合は別の方法が必要
+        console.log(`[Holodex Chat] ${videoId}: author_urlがハンドル形式: ${authorUrl}`);
+        return null;
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`[Holodex Chat] ${videoId}: チャンネルID取得エラー:`, error);
+      return null;
+    }
+  }
+
+  // Continuationトークンを生成（簡易版）
+  generateContinuationToken(videoId, channelId) {
+    try {
+      // Base64url エンコード用ヘルパー
+      const base64urlEncode = (bytes) => {
+        const base64 = btoa(String.fromCharCode.apply(null, bytes));
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+      };
+
+      // Varintエンコード
+      const encodeVarint = (num) => {
+        const result = [];
+        while (num > 127) {
+          result.push((num & 127) | 128);
+          num >>>= 7;
+        }
+        result.push(num);
+        return result;
+      };
+
+      // フィールドヘッダー
+      const fieldHeader = (fieldNum, wireType) => {
+        return encodeVarint((fieldNum << 3) | wireType);
+      };
+
+      // 文字列フィールド
+      const stringField = (fieldNum, str) => {
+        const bytes = new TextEncoder().encode(str);
+        return [...fieldHeader(fieldNum, 2), ...encodeVarint(bytes.length), ...Array.from(bytes)];
+      };
+
+      // varintフィールド
+      const varintField = (fieldNum, value) => {
+        return [...fieldHeader(fieldNum, 0), ...encodeVarint(value)];
+      };
+
+      // 埋め込みメッセージフィールド
+      const messageField = (fieldNum, messageBytes) => {
+        return [...fieldHeader(fieldNum, 2), ...encodeVarint(messageBytes.length), ...messageBytes];
+      };
+
+      // チャンネル+動画IDの内部メッセージ
+      const cvPair = [
+        ...stringField(1, channelId),
+        ...stringField(3, videoId)
+      ];
+
+      // メイン構造
+      const message = [
+        ...messageField(3, cvPair),
+        ...varintField(8, 1),
+        ...messageField(11, varintField(2, 0)), // seekMs = 0
+        ...messageField(14, varintField(1, 1)), // chatType = 1
+        ...varintField(15, 1)
+      ];
+
+      // field 156074452 でラップ
+      const wrapped = messageField(156074452, message);
+
+      const token = base64urlEncode(wrapped);
+      console.log(`[Holodex Chat] ${videoId}: continuationトークン生成: ${token.substring(0, 30)}...`);
+      return token;
+    } catch (error) {
+      console.error(`[Holodex Chat] ${videoId}: トークン生成エラー:`, error);
+      return null;
+    }
+  }
+
   // 動画を登録し、UIを追加
   registerVideo(videoId, element, index) {
     console.log(`[Holodex Chat] 動画を登録: ${videoId} (index: ${index})`);
@@ -235,11 +336,34 @@ class HolodexChatManager {
     let loadCheckTimer = null;
     let hasTriedFallback = false;
 
-    const tryFallback = () => {
+    const tryFallback = async () => {
       if (!hasTriedFallback) {
         hasTriedFallback = true;
-        console.log(`[Holodex Chat] ${videoData.videoId}: フォールバック試行 - リプレイURL: ${fallbackUrl}`);
-        chatIframe.src = fallbackUrl;
+        console.log(`[Holodex Chat] ${videoData.videoId}: フォールバック試行 - アーカイブチャット取得開始`);
+
+        // チャンネルIDを取得
+        const channelId = await this.fetchChannelId(videoData.videoId);
+
+        if (channelId) {
+          // Continuationトークン生成
+          const continuation = this.generateContinuationToken(videoData.videoId, channelId);
+
+          if (continuation) {
+            // 完全なアーカイブチャットURL
+            const archiveUrl = `https://www.youtube.com/live_chat_replay?v=${videoData.videoId}&embed_domain=${baseUrl}&c=${channelId}&continuation=${continuation}`;
+            console.log(`[Holodex Chat] ${videoData.videoId}: アーカイブURL生成成功`);
+            chatIframe.src = archiveUrl;
+          } else {
+            // continuationなしで試行
+            const archiveUrl = `https://www.youtube.com/live_chat_replay?v=${videoData.videoId}&embed_domain=${baseUrl}&c=${channelId}`;
+            console.log(`[Holodex Chat] ${videoData.videoId}: アーカイブURL（continuation無し）`);
+            chatIframe.src = archiveUrl;
+          }
+        } else {
+          // チャンネルID取得失敗時、通常のリプレイURLで試行
+          console.log(`[Holodex Chat] ${videoData.videoId}: チャンネルID取得失敗、基本リプレイURL使用`);
+          chatIframe.src = fallbackUrl;
+        }
       }
     };
 
